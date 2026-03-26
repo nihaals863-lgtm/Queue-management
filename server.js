@@ -39,8 +39,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Security Middleware
-app.use(helmet());
+// CORS Config — MUST come BEFORE helmet
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+}));
+
+// Security Middleware — configured to not block cross-origin requests
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -49,12 +58,6 @@ const limiter = rateLimit({
   message: "Too many requests from this IP, please try again later"
 });
 app.use("/api/", limiter);
-
-// CORS Config
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-}));
 
 app.use(express.json());
 
