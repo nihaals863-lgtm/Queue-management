@@ -28,8 +28,8 @@ const server = http.createServer(app);
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
@@ -53,8 +53,7 @@ app.use("/api/", limiter);
 // CORS Config
 app.use(cors({
   origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
 }));
 
 app.use(express.json());
