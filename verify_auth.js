@@ -1,8 +1,8 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://queue-management-production-c267.up.railway.app/api';
 
 async function runTests() {
   console.log("=== STARTING AUTH VERIFICATION TESTS (FETCH NATIVE) ===");
-  
+
   const uniqueId = Date.now();
   const testAdmin = {
     name: 'Admin Test',

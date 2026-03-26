@@ -9,23 +9,53 @@ const Department = require("../models/Department");
 const createToken = async (req, res) => {
     try {
         console.log("[DEBUG] createToken req.body:", req.body);
-        const { department, name, phone } = req.body; // department name or id, optional name/phone
+        
+        // 1. Normalize payload: Accept BOTH departmentName and department
+        const deptNameInput = req.body.departmentName || req.body.department;
+        const { name, phone } = req.body;
 
-        // 1. Find department to get prefix
-        const dept = await Department.findOne({ 
-            $or: [{ name: department }, { _id: mongoose.isValidObjectId(department) ? department : null }] 
-        });
-
-        if (!dept || dept.status !== "Active") {
+        if (!deptNameInput) {
             return res.status(400).json({ 
                 success: false, 
-                message: "Department is invalid or inactive." 
+                message: "Department name or ID is required." 
+            });
+        }
+
+        // 2. Department lookup (case-insensitive + trimmed)
+        const deptNameSearch = deptNameInput.trim();
+        const dept = await Department.findOne({ 
+            $or: [
+                { name: new RegExp(`^${deptNameSearch}$`, "i") }, 
+                { _id: mongoose.isValidObjectId(deptNameSearch) ? deptNameSearch : null }
+            ] 
+        });
+
+        // 3. Strict validation
+        if (!dept) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Department "${deptNameInput}" not found.` 
+            });
+        }
+
+        if (dept.status !== "Active") {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Department "${dept.name}" is currently inactive.` 
+            });
+        }
+
+        if (!dept.prefix) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Department "${dept.name}" does not have a prefix configured.` 
             });
         }
 
         const prefix = dept.prefix;
 
-        // 2. ATOMIC: Increment Counter for this department
+        // 4. Safe token generation: Maintain per-department counter
+        // Using dept.name (normalized from DB) for the counter ID
         const counter = await Counter.findOneAndUpdate(
             { id: `token_number_${dept.name}` },
             { $inc: { seq: 1 } },
@@ -35,29 +65,36 @@ const createToken = async (req, res) => {
         const tokenNumber = counter.seq;
         const tokenLabel = `${prefix}${tokenNumber}`;
 
+        // 5. Create Token (No mock data, fully dynamic)
         const token = await Token.create({
             tokenNumber,
             tokenLabel,
             patientName: name || "Walk-in",
             patientPhone: phone || "",
-            department: dept.name,
+            department: dept.name, // Store normalized name
             status: "waiting"
         });
 
-        // Emit real-time event
-        req.io.emit("token-created", token);
-        req.io.to(dept.name).emit("queue-updated", { department: dept.name });
+        // 6. Real-time events
+        if (req.io) {
+            req.io.emit("token-created", token);
+            req.io.to(dept.name).emit("queue-updated", { department: dept.name });
+        }
 
-        res.status(201).json({
+        // 7. Success Response (Always valid JSON)
+        return res.status(201).json({
             success: true,
-            message: "Token created successfully",
+            message: "Token generated successfully",
             data: token
         });
+
     } catch (error) {
-        console.error("[ERROR] createToken:", error.message);
-        res.status(500).json({
+        // 8. Prevent crashes: Wrap full controller in try-catch
+        console.error("Token Generation Error:", error);
+        return res.status(500).json({ 
             success: false,
-            message: error.message || "Server Error"
+            message: "Internal Server Error",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined
         });
     }
 };

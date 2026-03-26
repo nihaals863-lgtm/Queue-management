@@ -52,7 +52,8 @@ app.use("/api/", limiter);
 
 // CORS Config
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
 
