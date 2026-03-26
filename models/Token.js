@@ -20,11 +20,7 @@ const tokenSchema = new mongoose.Schema({
 
     department: {
         type: String,
-        required: [true, "Department is required"],
-        enum: {
-            values: ["Reception", "Triage", "Consultation"],
-            message: "Department must be Reception, Triage, or Consultation"
-        }
+        required: [true, "Department is required"]
     },
     status: {
         type: String,
